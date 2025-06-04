@@ -12,6 +12,24 @@
 
 #include "room.h"       // Room structure definition
 
+// ------------ Visual helpers ------------
+#ifdef _WIN32
+static const char* CLEAR_COMMAND = "cls";
+#else
+static const char* CLEAR_COMMAND = "clear";
+#endif
+
+static const std::string CLR_RESET   = "\033[0m";
+static const std::string CLR_BOLD    = "\033[1m";
+static const std::string CLR_CYAN    = "\033[36m";
+static const std::string CLR_GREEN   = "\033[32m";
+static const std::string CLR_YELLOW  = "\033[33m";
+static const std::string CLR_MAGENTA = "\033[35m";
+
+static void clearScreen() {
+    std::system(CLEAR_COMMAND);
+}
+
 // Helper to convert a string to lowercase so commands aren't case sensitive
 static std::string toLower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(),
@@ -68,32 +86,35 @@ static std::unordered_set<const Room*> visitedRooms;
 // Display the current room description along with items and exits
 static void showRoom(const Room* room) {
     if (visitedRooms.insert(room).second) {
-        std::cout << room->name << "\n" << room->description << "\n";
+        std::cout << CLR_BOLD << CLR_CYAN << room->name << CLR_RESET
+                  << "\n\n" << room->description << "\n\n";
     } else {
-        std::cout << "You return to " << room->name << ".\n";
+        std::cout << "You return to " << CLR_BOLD << CLR_CYAN << room->name
+                  << CLR_RESET << ".\n\n";
     }
     if (!room->items.empty()) {
-        std::cout << "You see:";
+        std::cout << CLR_GREEN << "You see:";
         for (const auto& it : room->items) std::cout << ' ' << it;
-        std::cout << "\n";
+        std::cout << CLR_RESET << "\n";
     }
     if (!room->pointsOfInterest.empty()) {
-        std::cout << "Notable:";
+        std::cout << CLR_YELLOW << "Notable:";
         for (const auto& p : room->pointsOfInterest) std::cout << ' ' << p.first;
-        std::cout << "\n";
+        std::cout << CLR_RESET << "\n";
     }
     if (room->npc) {
-        std::cout << "Someone is here: " << room->npc->name << "\n";
+        std::cout << CLR_MAGENTA << "Someone is here: " << room->npc->name
+                  << CLR_RESET << "\n";
     }
     if (!room->exits.empty()) {
-        std::cout << "Exits:";
+        std::cout << CLR_CYAN << "Exits:";
         for (const auto& e : room->exits) std::cout << ' ' << e.first;
-        std::cout << "\n";
+        std::cout << CLR_RESET << "\n";
     }
     if (!room->actions.empty()) {
-        std::cout << "Actions:";
+        std::cout << CLR_YELLOW << "Actions:";
         for (const auto& a : room->actions) std::cout << ' ' << a;
-        std::cout << "\n";
+        std::cout << CLR_RESET << "\n";
     }
 }
 
@@ -109,19 +130,19 @@ static const std::vector<std::string> events = {
 // 7% chance to display a random atmospheric event
 static void maybeAtmosphericEvent() {
     if (std::rand() % 100 < 7) {
-        std::cout << events[std::rand() % events.size()] << "\n";
+        std::cout << '\n' << events[std::rand() % events.size()] << "\n";
     }
 }
 
 // Simple NPC conversation loop
 static void talkTo(NPC* npc) {
     if (!npc) return;
-    std::cout << npc->greeting << "\n";
+    std::cout << CLR_MAGENTA << npc->greeting << CLR_RESET << "\n";
     while (true) {
         for (size_t i = 0; i < npc->options.size(); ++i) {
             std::cout << i + 1 << ". " << npc->options[i].prompt << "\n";
         }
-        std::cout << "> ";
+        std::cout << CLR_CYAN << "> " << CLR_RESET;
         std::string choice;
         std::getline(std::cin, choice);
         choice = toLower(choice);
@@ -277,15 +298,14 @@ int main() {
     std::vector<std::string> inventory;    // items the player has collected
 
     std::string input; // holds the player's typed command
-    std::cout << "Welcome to Whispers of the Forgotten Vale.\n";
-    std::cout << "Type 'help' for commands, 'exit' to quit.\n";
-    // Show the description of the starting room
-
+    clearScreen();
+    std::cout << CLR_BOLD << "Welcome to Whispers of the Forgotten Vale." << CLR_RESET << "\n";
+    std::cout << "Type 'help' for commands, 'exit' to quit." << "\n\n";
     showRoom(current);
 
 
     while (true) { // repeat until the player types "exit"
-        std::cout << "\n> ";        // simple command prompt
+        std::cout << "\n" << CLR_CYAN << "> " << CLR_RESET;        // simple command prompt
         std::getline(std::cin, input); // read a full line of input
         input = toLower(input);        // make command comparisons easier
 
@@ -322,6 +342,7 @@ int main() {
         }
         else if (fuzzyMatch(words[0], lookWords)) {    // look around or at an item
             if (words.size() == 1) {
+                clearScreen();
                 showRoom(current);
             } else {
                 std::string item;
@@ -356,11 +377,15 @@ int main() {
                     }
                     if (toLower(current->npc->name) == target) {
                         talkTo(current->npc);
+                        clearScreen();
+                        showRoom(current);
                     } else {
                         std::cout << "There is no " << target << " here." << "\n";
                     }
                 } else {
                     talkTo(current->npc);
+                    clearScreen();
+                    showRoom(current);
                 }
             } else {
                 std::cout << "There is no one here to talk to." << "\n";
@@ -377,6 +402,7 @@ int main() {
                 } else {
                     current = it->second;
                     std::cout << "You move " << dir << ".\n";
+                    clearScreen();
                     showRoom(current);
                 }
             } else {
