@@ -21,14 +21,11 @@
 - Avoid adding external dependencies unless requested.
 
 ## Future TODOs
-- More NPC's
 - More NPC interactions
-- Improve parser (talk to hermit should enable you to talk to the hermit, not try to move to hermit)
 - Quests
 - Puzzles/Riddles
 - Specific item uses (Key for a locked door, herbs for healing, lump of iron for a quest etc.)
 - Dynamic weather
-- Room visit history
 - Save/Load system
 
 ## Tone

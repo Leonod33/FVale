@@ -1,6 +1,7 @@
 #include <iostream>      // handles console input and output
 #include <string>        // std::string type for storing text
 #include <unordered_map> // associative container for room exits
+#include <unordered_set> // storing visited rooms
 #include <vector>        // stores room and player items
 #include <cstdlib>       // rand
 #include <ctime>         // time for seeding rand
@@ -62,8 +63,15 @@ static std::string matchAction(const std::string& word,
 }
 
 // Display the current room description along with items and exits
+static std::unordered_set<const Room*> visitedRooms;
+
+// Display the current room description along with items and exits
 static void showRoom(const Room* room) {
-    std::cout << room->name << "\n" << room->description << "\n";
+    if (visitedRooms.insert(room).second) {
+        std::cout << room->name << "\n" << room->description << "\n";
+    } else {
+        std::cout << "You return to " << room->name << ".\n";
+    }
     if (!room->items.empty()) {
         std::cout << "You see:";
         for (const auto& it : room->items) std::cout << ' ' << it;
@@ -158,6 +166,15 @@ int main() {
         {"Farewell", "The hermit nods and returns to his thoughts."}
     };
 
+    NPC traveller;
+    traveller.name = "traveller";
+    traveller.greeting = "A weary traveller doffs his cap.";
+    traveller.options = {
+        {"Any news?", "Only whispers of ghosts near the ruins."},
+        {"Seen any treasure?", "Rumour speaks of riches locked in the tower."},
+        {"Farewell", "He wishes you safe roads."}
+    };
+
     // Place a few simple items in the world
     glade.items.push_back("flower");
     river.items.push_back("stone");
@@ -194,6 +211,7 @@ int main() {
     ruins.pointsOfInterest["fire"] = "A small hearth where someone recently camped.";
 
     ruins.npc = &hermit;
+    meadow.npc = &traveller;
 
     tower.pointsOfInterest["stairs"] = "Crumbling stairs spiral upwards and stop.";
     tower.pointsOfInterest["door"] = "A heavy wooden door bars the way up.";
@@ -277,7 +295,8 @@ int main() {
         std::vector<std::string> words;
         std::string word;
         while (iss >> word) {
-            if (word == "the" || word == "a" || word == "an" || word == "at")
+            if (word == "the" || word == "a" || word == "an" || word == "at" ||
+                word == "to" || word == "with")
                 continue;
             words.push_back(word);
         }
@@ -325,6 +344,26 @@ int main() {
                         std::cout << "You cannot see a " << item << " here." << "\n";
                     }
                 }
+            }
+        }
+        else if (fuzzyMatch(words[0], talkWords)) {   // converse with NPC
+            if (current->npc) {
+                if (words.size() >= 2) {
+                    std::string target;
+                    for (size_t i = 1; i < words.size(); ++i) {
+                        if (i > 1) target += ' ';
+                        target += words[i];
+                    }
+                    if (toLower(current->npc->name) == target) {
+                        talkTo(current->npc);
+                    } else {
+                        std::cout << "There is no " << target << " here." << "\n";
+                    }
+                } else {
+                    talkTo(current->npc);
+                }
+            } else {
+                std::cout << "There is no one here to talk to." << "\n";
             }
         }
         else if (fuzzyMatch(words[0], goWords) && words.size() >= 2) { // move if the direction exists
@@ -429,15 +468,6 @@ int main() {
                 std::cout << "You need a key for that." << "\n";
             }
         }
-
-        else if (fuzzyMatch(words[0], talkWords)) {   // converse with NPC
-            if (current->npc) {
-                talkTo(current->npc);
-            } else {
-                std::cout << "There is no one here to talk to." << "\n";
-            }
-        }
-
 
         else if (fuzzyMatch(words[0], invWords)) {     // list carried items
             if (inventory.empty()) {
