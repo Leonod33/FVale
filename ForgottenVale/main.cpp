@@ -9,15 +9,7 @@
 
 #include <algorithm>     // std::transform used in toLower
 
-// Represents one location in the game world
-struct Room {
-    std::string name;                        // short title shown to the player
-    std::string description;                 // longer text describing the area
-    std::unordered_map<std::string, Room*> exits; // directions leading to other rooms
-    std::vector<std::string> items;          // items currently lying in the room
-    std::vector<std::string> actions;        // special actions allowed here
-    std::unordered_map<std::string, std::string> actionResults; // response for each action
-};
+#include "room.h"       // Room structure definition
 
 // Helper to convert a string to lowercase so commands aren't case sensitive
 static std::string toLower(std::string s) {
