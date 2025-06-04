@@ -59,6 +59,16 @@ static bool fuzzyMatch(const std::string& word,
     return false;
 }
 
+// Find an action matching the word within edit distance 1, or return empty
+static std::string matchAction(const std::string& word,
+                               const std::vector<std::string>& actions) {
+    for (const auto& act : actions) {
+        if (editDistance(word, act) <= 1)
+            return act;
+    }
+    return "";
+}
+
 // Display the current room description along with items and exits
 static void showRoom(const Room* room) {
     std::cout << room->name << "\n" << room->description << "\n";
@@ -71,6 +81,27 @@ static void showRoom(const Room* room) {
         std::cout << "Exits:";
         for (const auto& e : room->exits) std::cout << ' ' << e.first;
         std::cout << "\n";
+    }
+    if (!room->actions.empty()) {
+        std::cout << "Actions:";
+        for (const auto& a : room->actions) std::cout << ' ' << a;
+        std::cout << "\n";
+    }
+}
+
+// Possible atmospheric events that may occur randomly
+static const std::vector<std::string> events = {
+    "A raven caws in the distance.",
+    "The wind rustles through the trees.",
+    "A distant howl echoes across the vale.",
+    "Leaves crunch somewhere nearby.",
+    "You hear the flap of wings overhead."
+};
+
+// 7% chance to display a random atmospheric event
+static void maybeAtmosphericEvent() {
+    if (std::rand() % 100 < 7) {
+        std::cout << events[std::rand() % events.size()] << "\n";
     }
 }
 
@@ -200,7 +231,10 @@ int main() {
         const std::vector<std::string> exitWords = {"exit", "quit"};
 
         if (fuzzyMatch(words[0], helpWords)) {          // show available commands
-            std::cout << "Available commands: look [item], go [direction], take [item], drop [item], use [action], inventory, help, exit\n";
+
+            std::cout << "Available commands: look [item], go [direction], take [item], drop [item], [action], inventory, help, exit\n";
+            std::cout << "Type an action listed in the room to perform it." << "\n";
+
         }
         else if (fuzzyMatch(words[0], lookWords)) {    // look around or at an item
             if (words.size() == 1) {
@@ -290,6 +324,16 @@ int main() {
                 std::cout << "You can't " << action << " here.\n";
             }
         }
+
+        else if (!matchAction(words[0], current->actions).empty()) { // action without 'use'
+            std::string action = matchAction(words[0], current->actions);
+            auto r = current->actionResults.find(action);
+            if (r != current->actionResults.end())
+                std::cout << r->second << "\n";
+            else
+                std::cout << "You " << action << ".\n";
+        }
+
 
         else if (fuzzyMatch(words[0], invWords)) {     // list carried items
             if (inventory.empty()) {
