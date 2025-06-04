@@ -105,6 +105,22 @@ static void maybeAtmosphericEvent() {
     }
 }
 
+// Possible atmospheric events that may occur randomly
+static const std::vector<std::string> events = {
+    "A raven caws in the distance.",
+    "The wind rustles through the trees.",
+    "A distant howl echoes across the vale.",
+    "Leaves crunch somewhere nearby.",
+    "You hear the flap of wings overhead."
+};
+
+// 7% chance to display a random atmospheric event
+static void maybeAtmosphericEvent() {
+    if (std::rand() % 100 < 7) {
+        std::cout << events[std::rand() % events.size()] << "\n";
+    }
+}
+
 
 int main() {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
@@ -215,8 +231,10 @@ int main() {
         const std::vector<std::string> exitWords = {"exit", "quit"};
 
         if (fuzzyMatch(words[0], helpWords)) {          // show available commands
+
             std::cout << "Available commands: look [item], go [direction], take [item], drop [item], [action], inventory, help, exit\n";
             std::cout << "Type an action listed in the room to perform it." << "\n";
+
         }
         else if (fuzzyMatch(words[0], lookWords)) {    // look around or at an item
             if (words.size() == 1) {
@@ -306,6 +324,7 @@ int main() {
                 std::cout << "You can't " << action << " here.\n";
             }
         }
+
         else if (!matchAction(words[0], current->actions).empty()) { // action without 'use'
             std::string action = matchAction(words[0], current->actions);
             auto r = current->actionResults.find(action);
@@ -314,6 +333,7 @@ int main() {
             else
                 std::cout << "You " << action << ".\n";
         }
+
 
         else if (fuzzyMatch(words[0], invWords)) {     // list carried items
             if (inventory.empty()) {
