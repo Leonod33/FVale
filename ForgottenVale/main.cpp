@@ -105,21 +105,7 @@ static void maybeAtmosphericEvent() {
     }
 }
 
-// Possible atmospheric events that may occur randomly
-static const std::vector<std::string> events = {
-    "A raven caws in the distance.",
-    "The wind rustles through the trees.",
-    "A distant howl echoes across the vale.",
-    "Leaves crunch somewhere nearby.",
-    "You hear the flap of wings overhead."
-};
 
-// 7% chance to display a random atmospheric event
-static void maybeAtmosphericEvent() {
-    if (std::rand() % 100 < 7) {
-        std::cout << events[std::rand() % events.size()] << "\n";
-    }
-}
 
 
 int main() {
