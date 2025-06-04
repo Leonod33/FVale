@@ -3,6 +3,9 @@
 A gentle, atmospheric text adventure game in C++.  
 Explore forgotten ruins, collect curious items, and uncover the valley’s secrets.
 
+The main game loop lives in `main.cpp`, while room definitions reside in `room.h`
+and `room.cpp` for clarity.
+
 ## Features
 - Explore interconnected rooms
 - Fuzzy command recognition and synonyms
@@ -19,9 +22,14 @@ Explore forgotten ruins, collect curious items, and uncover the valley’s secre
 
 ## Building & Running
 Requires a C++17+ compiler.  
-Compile with: g++ main.cpp -o vale
+Compile with: g++ main.cpp room.cpp -o vale
 
 Then run: ./vale
+
+## Project Structure
+- `main.cpp` – core game loop and logic
+- `room.h` – Room structure definition
+- `room.cpp` – (currently empty) implementations for any Room methods
 
 ## TODO
 NPC's
