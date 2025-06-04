@@ -69,6 +69,14 @@ static void showRoom(const Room* room) {
         for (const auto& it : room->items) std::cout << ' ' << it;
         std::cout << "\n";
     }
+    if (!room->pointsOfInterest.empty()) {
+        std::cout << "Notable:";
+        for (const auto& p : room->pointsOfInterest) std::cout << ' ' << p.first;
+        std::cout << "\n";
+    }
+    if (room->npc) {
+        std::cout << "Someone is here: " << room->npc->name << "\n";
+    }
     if (!room->exits.empty()) {
         std::cout << "Exits:";
         for (const auto& e : room->exits) std::cout << ' ' << e.first;
@@ -97,6 +105,34 @@ static void maybeAtmosphericEvent() {
     }
 }
 
+// Simple NPC conversation loop
+static void talkTo(NPC* npc) {
+    if (!npc) return;
+    std::cout << npc->greeting << "\n";
+    while (true) {
+        for (size_t i = 0; i < npc->options.size(); ++i) {
+            std::cout << i + 1 << ". " << npc->options[i].prompt << "\n";
+        }
+        std::cout << "> ";
+        std::string choice;
+        std::getline(std::cin, choice);
+        choice = toLower(choice);
+        int index = -1;
+        try {
+            index = std::stoi(choice) - 1;
+        } catch (...) {
+            // not a number
+        }
+        if (index >= 0 && static_cast<size_t>(index) < npc->options.size()) {
+            std::cout << npc->options[index].response << "\n";
+            if (toLower(npc->options[index].prompt).find("farewell") != std::string::npos)
+                break;
+        } else {
+            std::cout << "He doesn't seem to understand." << "\n";
+        }
+    }
+}
+
 
 
 
@@ -104,13 +140,23 @@ int main() {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     // -------- Set up the rooms --------
     // Define each location with a name and a description
-    Room glade{"Forest Glade", "You are standing in a forgotten glade, trees whispering above."};
-    Room river{"Crystal River", "A gentle river flows here, sparkling in the light."};
-    Room cave{"Shadowy Cave", "A dark cave mouth yawns before you."};
-    Room meadow{"Sunny Meadow", "Open grass stretches out, dotted with wildflowers."};
-    Room hill{"Grassy Hill", "A low hill provides a view of the surrounding forest."};
-    Room ruins{"Ancient Ruins", "Crumbling stone walls hint at stories long forgotten."};
-    Room tower{"Abandoned Tower", "The remains of a stone tower rise against the sky."};
+    Room glade{"Forest Glade", "You stand within a quiet glade, encircled by ancient oaks whose branches weave a living roof."};
+    Room river{"Crystal River", "A gentle river murmurs here, its waters clear as glass and cold as mountain snow."};
+    Room cave{"Shadowy Cave", "The cave mouth gapes like a wound in the hillside, breathing damp air upon you."};
+    Room meadow{"Sunny Meadow", "Grasses sway in a meadow alive with insects and drifting seeds."};
+    Room hill{"Grassy Hill", "From this rise the surrounding forest rolls away in waves of green."};
+    Room ruins{"Ancient Ruins", "Crumbling stones speak of a forgotten settlement swallowed by time."};
+    Room tower{"Abandoned Tower", "A lonely tower leans towards the clouds, its door barred above."};
+    Room vault{"Hidden Vault", "A secret chamber filled with dust and riches long unseen."};
+
+    NPC hermit;
+    hermit.name = "hermit";
+    hermit.greeting = "An old hermit smiles faintly.";
+    hermit.options = {
+        {"Who are you?", "Just a wanderer who listens to the vale."},
+        {"Know anything about the tower?", "Its upper room hides treasure behind a locked door."},
+        {"Farewell", "The hermit nods and returns to his thoughts."}
+    };
 
     // Place a few simple items in the world
     glade.items.push_back("flower");
@@ -120,6 +166,42 @@ int main() {
     hill.items.push_back("map");
     ruins.items.push_back("ancient coin");
     tower.items.push_back("silver sword");
+    vault.items.push_back("golden chalice");
+
+    // Points of interest in each room
+    glade.pointsOfInterest["oak"] = "The ancient oak is etched with weathered runes.";
+    glade.pointsOfInterest["altar"] = "A moss-covered altar hints at long-lost worship.";
+    glade.pointsOfInterest["brook"] = "A narrow brook trickles between the roots.";
+
+    river.pointsOfInterest["bridge"] = "Remnants of a wooden bridge jut from the banks.";
+    river.pointsOfInterest["stones"] = "Flat stones form a crossing for the nimble.";
+    river.pointsOfInterest["fish"] = "Silver fish dart just beneath the surface.";
+
+    cave.pointsOfInterest["markings"] = "Faded symbols spiral across the damp rock.";
+    cave.pointsOfInterest["stalactites"] = "Sharp formations drip slowly from above.";
+    cave.pointsOfInterest["tunnel"] = "A narrow tunnel leads deeper but is collapsed.";
+
+    meadow.pointsOfInterest["flowers"] = "Wild blooms colour the meadow like a tapestry.";
+    meadow.pointsOfInterest["log"] = "A fallen log hosts colonies of bright fungi.";
+    meadow.pointsOfInterest["bees"] = "Bees flit busily from flower to flower.";
+
+    hill.pointsOfInterest["cairn"] = "A small cairn marks some forgotten traveller.";
+    hill.pointsOfInterest["mountains"] = "Distant peaks loom, veiled by mist.";
+    hill.pointsOfInterest["vale"] = "The vale stretches out in quiet majesty.";
+
+    ruins.pointsOfInterest["statue"] = "A headless statue watches over the rubble.";
+    ruins.pointsOfInterest["archway"] = "A collapsed arch frames the grey sky.";
+    ruins.pointsOfInterest["fire"] = "A small hearth where someone recently camped.";
+
+    ruins.npc = &hermit;
+
+    tower.pointsOfInterest["stairs"] = "Crumbling stairs spiral upwards and stop.";
+    tower.pointsOfInterest["door"] = "A heavy wooden door bars the way up.";
+    tower.pointsOfInterest["ivy"] = "Thick ivy clings stubbornly to the stone.";
+
+    vault.pointsOfInterest["chest"] = "An iron-bound chest rests against the far wall.";
+    vault.pointsOfInterest["mural"] = "A faded mural depicts a forgotten coronation.";
+    vault.pointsOfInterest["bones"] = "Old bones lie scattered across the floor.";
 
     // Special actions for each room
     glade.actions = {"rest"};
@@ -140,7 +222,7 @@ int main() {
     ruins.actions = {"search"};
     ruins.actionResults["search"] = "You sift through the rubble but find nothing of value.";
 
-    tower.actions = {"climb"};
+    tower.actions = {"climb", "unlock door"};
     tower.actionResults["climb"] = "You climb the crumbling stairs, but they lead nowhere.";
 
 
@@ -153,6 +235,7 @@ int main() {
     itemDesc["map"] = "A faded map of the surrounding lands.";
     itemDesc["ancient coin"] = "Time-worn currency from a forgotten era.";
     itemDesc["silver sword"] = "Still sharp despite years of neglect.";
+    itemDesc["golden chalice"] = "Jeweled and heavy, it glitters despite the dust.";
 
 
     // Connect rooms so the player can move between them
@@ -166,6 +249,9 @@ int main() {
     hill.exits["east"] = &glade;
     river.exits["east"] = &tower;
     tower.exits["west"] = &river;
+    tower.exits["up"] = &vault;
+    tower.exitLocked["up"] = true;
+    vault.exits["down"] = &tower;
     meadow.exits["east"] = &ruins;
     ruins.exits["west"] = &meadow;
 
@@ -205,12 +291,13 @@ int main() {
         const std::vector<std::string> dropWords = {"drop", "leave"};
         const std::vector<std::string> useWords = {"use", "do"};
         const std::vector<std::string> invWords = {"inventory", "inv", "i"};
+        const std::vector<std::string> talkWords = {"talk", "speak", "chat"};
         const std::vector<std::string> helpWords = {"help", "?"};
         const std::vector<std::string> exitWords = {"exit", "quit"};
 
         if (fuzzyMatch(words[0], helpWords)) {          // show available commands
 
-            std::cout << "Available commands: look [item], go [direction], take [item], drop [item], [action], inventory, help, exit\n";
+            std::cout << "Available commands: look [item], go [direction], take [item], drop [item], [action], talk, inventory, help, exit\n";
             std::cout << "Type an action listed in the room to perform it." << "\n";
 
         }
@@ -231,7 +318,12 @@ int main() {
                     else
                         std::cout << "It's just a " << item << ".\n";
                 } else {
-                    std::cout << "You don't have a " << item << ".\n";
+                    auto p = current->pointsOfInterest.find(item);
+                    if (p != current->pointsOfInterest.end()) {
+                        std::cout << p->second << "\n";
+                    } else {
+                        std::cout << "You cannot see a " << item << " here." << "\n";
+                    }
                 }
             }
         }
@@ -240,11 +332,14 @@ int main() {
 
             auto it = current->exits.find(dir);
             if (it != current->exits.end()) {
-                current = it->second;
-                std::cout << "You move " << dir << ".\n";
-
-                showRoom(current);
-
+                auto lock = current->exitLocked.find(dir);
+                if (lock != current->exitLocked.end() && lock->second) {
+                    std::cout << "The way is locked." << "\n";
+                } else {
+                    current = it->second;
+                    std::cout << "You move " << dir << ".\n";
+                    showRoom(current);
+                }
             } else {
                 std::cout << "You can't go that way.\n";
             }
@@ -293,11 +388,23 @@ int main() {
 
             auto it = std::find(current->actions.begin(), current->actions.end(), action);
             if (it != current->actions.end()) {
-                auto r = current->actionResults.find(action);
-                if (r != current->actionResults.end())
-                    std::cout << r->second << "\n";
-                else
-                    std::cout << "You " << action << ".\n";
+                if (action == "unlock door" && current == &tower) {
+                    auto lock = current->exitLocked.find("up");
+                    if (lock != current->exitLocked.end() && !lock->second) {
+                        std::cout << "The door is already open." << "\n";
+                    } else if (std::find(inventory.begin(), inventory.end(), "rusty key") != inventory.end()) {
+                        current->exitLocked["up"] = false;
+                        std::cout << "The key turns and the door creaks open." << "\n";
+                    } else {
+                        std::cout << "You need a key for that." << "\n";
+                    }
+                } else {
+                    auto r = current->actionResults.find(action);
+                    if (r != current->actionResults.end())
+                        std::cout << r->second << "\n";
+                    else
+                        std::cout << "You " << action << ".\n";
+                }
             } else {
                 std::cout << "You can't " << action << " here.\n";
             }
@@ -310,6 +417,25 @@ int main() {
                 std::cout << r->second << "\n";
             else
                 std::cout << "You " << action << ".\n";
+        }
+        else if (words[0] == "unlock" && words.size() >= 2 && words[1] == "door" && current == &tower) {
+            auto lock = current->exitLocked.find("up");
+            if (lock != current->exitLocked.end() && !lock->second) {
+                std::cout << "The door is already open." << "\n";
+            } else if (std::find(inventory.begin(), inventory.end(), "rusty key") != inventory.end()) {
+                current->exitLocked["up"] = false;
+                std::cout << "The key turns and the door creaks open." << "\n";
+            } else {
+                std::cout << "You need a key for that." << "\n";
+            }
+        }
+
+        else if (fuzzyMatch(words[0], talkWords)) {   // converse with NPC
+            if (current->npc) {
+                talkTo(current->npc);
+            } else {
+                std::cout << "There is no one here to talk to." << "\n";
+            }
         }
 
 
