@@ -28,6 +28,7 @@
 - Specific item uses (Key for a locked door, herbs for healing, lump of iron for a quest etc.)
 - Dynamic weather
 - Room visit history
+- Save/Load system
 
 ## Tone
 - Use British English for text output.
