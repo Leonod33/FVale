@@ -2,6 +2,9 @@
 #include <string>        // std::string type for storing text
 #include <unordered_map> // associative container for room exits
 #include <vector>        // stores room and player items
+
+#include <sstream>       // parsing user input into words
+
 #include <algorithm>     // std::transform used in toLower
 
 // Represents one location in the game world
@@ -18,6 +21,55 @@ static std::string toLower(std::string s) {
                    [](unsigned char c){ return std::tolower(c); });
     return s;
 }
+
+// Capitalize the first letter of a word for nicer inventory output
+static std::string capitalize(std::string s) {
+    if (!s.empty()) s[0] = static_cast<char>(std::toupper(s[0]));
+    return s;
+}
+
+// Compute a simple edit distance so commands can tolerate small typos
+static int editDistance(const std::string& a, const std::string& b) {
+    std::vector<std::vector<int>> dp(a.size() + 1,
+                                     std::vector<int>(b.size() + 1));
+    for (size_t i = 0; i <= a.size(); ++i) dp[i][0] = static_cast<int>(i);
+    for (size_t j = 0; j <= b.size(); ++j) dp[0][j] = static_cast<int>(j);
+    for (size_t i = 1; i <= a.size(); ++i) {
+        for (size_t j = 1; j <= b.size(); ++j) {
+            int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+            dp[i][j] = std::min({dp[i - 1][j] + 1,
+                                dp[i][j - 1] + 1,
+                                dp[i - 1][j - 1] + cost});
+        }
+    }
+    return dp[a.size()][b.size()];
+}
+
+// Returns true if the word is within one edit of any given option
+static bool fuzzyMatch(const std::string& word,
+                       const std::vector<std::string>& options) {
+    for (const auto& opt : options) {
+        if (editDistance(word, opt) <= 1)
+            return true;
+    }
+    return false;
+}
+
+// Display the current room description along with items and exits
+static void showRoom(const Room* room) {
+    std::cout << room->name << "\n" << room->description << "\n";
+    if (!room->items.empty()) {
+        std::cout << "You see:";
+        for (const auto& it : room->items) std::cout << ' ' << it;
+        std::cout << "\n";
+    }
+    if (!room->exits.empty()) {
+        std::cout << "Exits:";
+        for (const auto& e : room->exits) std::cout << ' ' << e.first;
+        std::cout << "\n";
+    }
+}
+
 
 int main() {
     // -------- Set up the rooms --------
@@ -38,6 +90,18 @@ int main() {
     hill.items.push_back("map");
     ruins.items.push_back("ancient coin");
     tower.items.push_back("silver sword");
+
+
+    // Descriptions the player can read when examining items
+    std::unordered_map<std::string, std::string> itemDesc;
+    itemDesc["flower"] = "A delicate wildflower with a pleasant scent.";
+    itemDesc["stone"] = "A smooth river stone.";
+    itemDesc["rusty key"] = "Perhaps it unlocks something ancient.";
+    itemDesc["herbs"] = "Bundles of fragrant healing herbs.";
+    itemDesc["map"] = "A faded map of the surrounding lands.";
+    itemDesc["ancient coin"] = "Time-worn currency from a forgotten era.";
+    itemDesc["silver sword"] = "Still sharp despite years of neglect.";
+
 
     // Connect rooms so the player can move between them
     glade.exits["north"] = &river;
@@ -60,46 +124,82 @@ int main() {
     std::cout << "Welcome to Whispers of the Forgotten Vale.\n";
     std::cout << "Type 'help' for commands, 'exit' to quit.\n";
     // Show the description of the starting room
-    std::cout << current->description << "\n";
+
+    showRoom(current);
+
 
     while (true) { // repeat until the player types "exit"
         std::cout << "\n> ";        // simple command prompt
         std::getline(std::cin, input); // read a full line of input
         input = toLower(input);        // make command comparisons easier
 
-        if (input == "help") {                         // show available commands
-            std::cout << "Available commands: look, go [direction], take [item], inventory, help, exit\n";
+
+        // Split the command into individual words and drop filler like 'the'
+        std::istringstream iss(input);
+        std::vector<std::string> words;
+        std::string word;
+        while (iss >> word) {
+            if (word == "the" || word == "a" || word == "an" || word == "at")
+                continue;
+            words.push_back(word);
         }
-        else if (input == "look") {                    // re-describe current room
-            std::cout << current->name << "\n" << current->description << "\n";
-            if (!current->items.empty()) {
-                std::cout << "You see:";
-                for (const auto& it : current->items) {
-                    std::cout << ' ' << it;
+        if (words.empty())
+            continue;
+
+        // Word groups used to recognise commands and tolerate slight typos
+        const std::vector<std::string> lookWords = {"look", "examine", "inspect"};
+        const std::vector<std::string> goWords = {"go", "move", "walk"};
+        const std::vector<std::string> takeWords = {"take", "get", "pickup", "pick", "grab"};
+        const std::vector<std::string> invWords = {"inventory", "inv", "i"};
+        const std::vector<std::string> helpWords = {"help", "?"};
+        const std::vector<std::string> exitWords = {"exit", "quit"};
+
+        if (fuzzyMatch(words[0], helpWords)) {          // show available commands
+            std::cout << "Available commands: look [item], go [direction], take [item], inventory, help, exit\n";
+        }
+        else if (fuzzyMatch(words[0], lookWords)) {    // look around or at an item
+            if (words.size() == 1) {
+                showRoom(current);
+            } else {
+                std::string item;
+                for (size_t i = 1; i < words.size(); ++i) {
+                    if (i > 1) item += ' ';
+                    item += words[i];
                 }
-                std::cout << '\n';
-            }
-            if (!current->exits.empty()) {
-                std::cout << "Exits:";
-                for (const auto& e : current->exits) {
-                    std::cout << ' ' << e.first;
+                auto it = std::find(inventory.begin(), inventory.end(), item);
+                if (it != inventory.end()) {
+                    auto d = itemDesc.find(item);
+                    if (d != itemDesc.end())
+                        std::cout << d->second << "\n";
+                    else
+                        std::cout << "It's just a " << item << ".\n";
+                } else {
+                    std::cout << "You don't have a " << item << ".\n";
                 }
-                std::cout << '\n';
             }
         }
-        else if (input.rfind("go ", 0) == 0) {         // move if the direction exists
-            std::string dir = input.substr(3);          // get direction after "go"
+        else if (fuzzyMatch(words[0], goWords) && words.size() >= 2) { // move if the direction exists
+            std::string dir = words[1];
+
             auto it = current->exits.find(dir);
             if (it != current->exits.end()) {
                 current = it->second;
                 std::cout << "You move " << dir << ".\n";
-                std::cout << current->description << "\n";
+
+                showRoom(current);
+
             } else {
                 std::cout << "You can't go that way.\n";
             }
         }
-        else if (input.rfind("take ", 0) == 0) {       // attempt to pick up an item
-            std::string item = input.substr(5);
+
+        else if (fuzzyMatch(words[0], takeWords) && words.size() >= 2) { // attempt to pick up an item
+            std::string item;
+            for (size_t i = 1; i < words.size(); ++i) {
+                if (i > 1) item += ' ';
+                item += words[i];
+            }
+
             auto it = std::find(current->items.begin(), current->items.end(), item);
             if (it != current->items.end()) {
                 inventory.push_back(*it);
@@ -109,18 +209,21 @@ int main() {
                 std::cout << "There is no " << item << " here.\n";
             }
         }
-        else if (input == "inventory" || input == "inv") { // list carried items
+
+        else if (fuzzyMatch(words[0], invWords)) {     // list carried items
             if (inventory.empty()) {
-                std::cout << "You are carrying nothing.\n";
+                std::cout << "Your inventory is empty.\n";
             } else {
-                std::cout << "You are carrying:";
-                for (const auto& it : inventory) {
-                    std::cout << ' ' << it;
+                std::cout << "You are carrying ";
+                for (size_t i = 0; i < inventory.size(); ++i) {
+                    if (i > 0) std::cout << ", ";
+                    std::cout << capitalize(inventory[i]);
                 }
-                std::cout << '\n';
+                std::cout << ".\n";
             }
         }
-        else if (input == "exit") {                    // leave the game
+        else if (fuzzyMatch(words[0], exitWords)) {    // leave the game
+
             std::cout << "Farewell, wanderer...\n";
             break;
         }
