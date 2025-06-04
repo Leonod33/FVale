@@ -2,6 +2,8 @@
 #include <string>        // std::string type for storing text
 #include <unordered_map> // associative container for room exits
 #include <vector>        // stores room and player items
+#include <cstdlib>       // rand
+#include <ctime>         // time for seeding rand
 
 #include <sstream>       // parsing user input into words
 
@@ -13,6 +15,8 @@ struct Room {
     std::string description;                 // longer text describing the area
     std::unordered_map<std::string, Room*> exits; // directions leading to other rooms
     std::vector<std::string> items;          // items currently lying in the room
+    std::vector<std::string> actions;        // special actions allowed here
+    std::unordered_map<std::string, std::string> actionResults; // response for each action
 };
 
 // Helper to convert a string to lowercase so commands aren't case sensitive
@@ -70,8 +74,25 @@ static void showRoom(const Room* room) {
     }
 }
 
+// Possible atmospheric events that may occur randomly
+static const std::vector<std::string> events = {
+    "A raven caws in the distance.",
+    "The wind rustles through the trees.",
+    "A distant howl echoes across the vale.",
+    "Leaves crunch somewhere nearby.",
+    "You hear the flap of wings overhead."
+};
+
+// 7% chance to display a random atmospheric event
+static void maybeAtmosphericEvent() {
+    if (std::rand() % 100 < 7) {
+        std::cout << events[std::rand() % events.size()] << "\n";
+    }
+}
+
 
 int main() {
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
     // -------- Set up the rooms --------
     // Define each location with a name and a description
     Room glade{"Forest Glade", "You are standing in a forgotten glade, trees whispering above."};
@@ -90,6 +111,28 @@ int main() {
     hill.items.push_back("map");
     ruins.items.push_back("ancient coin");
     tower.items.push_back("silver sword");
+
+    // Special actions for each room
+    glade.actions = {"rest"};
+    glade.actionResults["rest"] = "You rest for a moment, listening to the whispering leaves.";
+
+    river.actions = {"drink"};
+    river.actionResults["drink"] = "You drink the cool river water.";
+
+    cave.actions = {"search"};
+    cave.actionResults["search"] = "You find strange markings on the damp walls.";
+
+    meadow.actions = {"gather"};
+    meadow.actionResults["gather"] = "You gather a handful of colorful wildflowers.";
+
+    hill.actions = {"climb"};
+    hill.actionResults["climb"] = "From the hilltop you glimpse the entire vale.";
+
+    ruins.actions = {"search"};
+    ruins.actionResults["search"] = "You sift through the rubble but find nothing of value.";
+
+    tower.actions = {"climb"};
+    tower.actionResults["climb"] = "You climb the crumbling stairs, but they lead nowhere.";
 
 
     // Descriptions the player can read when examining items
@@ -150,12 +193,14 @@ int main() {
         const std::vector<std::string> lookWords = {"look", "examine", "inspect"};
         const std::vector<std::string> goWords = {"go", "move", "walk"};
         const std::vector<std::string> takeWords = {"take", "get", "pickup", "pick", "grab"};
+        const std::vector<std::string> dropWords = {"drop", "leave"};
+        const std::vector<std::string> useWords = {"use", "do"};
         const std::vector<std::string> invWords = {"inventory", "inv", "i"};
         const std::vector<std::string> helpWords = {"help", "?"};
         const std::vector<std::string> exitWords = {"exit", "quit"};
 
         if (fuzzyMatch(words[0], helpWords)) {          // show available commands
-            std::cout << "Available commands: look [item], go [direction], take [item], inventory, help, exit\n";
+            std::cout << "Available commands: look [item], go [direction], take [item], drop [item], use [action], inventory, help, exit\n";
         }
         else if (fuzzyMatch(words[0], lookWords)) {    // look around or at an item
             if (words.size() == 1) {
@@ -210,6 +255,42 @@ int main() {
             }
         }
 
+        else if (fuzzyMatch(words[0], dropWords) && words.size() >= 2) { // drop an item
+            std::string item;
+            for (size_t i = 1; i < words.size(); ++i) {
+                if (i > 1) item += ' ';
+                item += words[i];
+            }
+
+            auto it = std::find(inventory.begin(), inventory.end(), item);
+            if (it != inventory.end()) {
+                inventory.erase(it);
+                current->items.push_back(item);
+                std::cout << "You drop the " << item << ".\n";
+            } else {
+                std::cout << "You don't have a " << item << ".\n";
+            }
+        }
+
+        else if (fuzzyMatch(words[0], useWords) && words.size() >= 2) { // perform a room action
+            std::string action;
+            for (size_t i = 1; i < words.size(); ++i) {
+                if (i > 1) action += ' ';
+                action += words[i];
+            }
+
+            auto it = std::find(current->actions.begin(), current->actions.end(), action);
+            if (it != current->actions.end()) {
+                auto r = current->actionResults.find(action);
+                if (r != current->actionResults.end())
+                    std::cout << r->second << "\n";
+                else
+                    std::cout << "You " << action << ".\n";
+            } else {
+                std::cout << "You can't " << action << " here.\n";
+            }
+        }
+
         else if (fuzzyMatch(words[0], invWords)) {     // list carried items
             if (inventory.empty()) {
                 std::cout << "Your inventory is empty.\n";
@@ -230,6 +311,8 @@ int main() {
         else {                                          // command wasn't recognized
             std::cout << "Unknown command. Try 'help'.\n";
         }
+
+        maybeAtmosphericEvent();
     }
 
     return 0; // program completed successfully
