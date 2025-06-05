@@ -84,6 +84,10 @@ static std::string matchAction(const std::string& word,
 // Display the current room description along with items and exits
 static std::unordered_set<const Room*> visitedRooms;
 
+// --- Quest tracking ---
+static bool torchQuestActive = false;
+static bool torchQuestComplete = false;
+
 // --- Dynamic weather ---
 static const std::vector<std::string> weatherStates = {
     "clear skies",
@@ -180,6 +184,9 @@ static void talkTo(NPC* npc) {
         }
         if (index >= 0 && static_cast<size_t>(index) < npc->options.size()) {
             std::cout << npc->options[index].response << "\n";
+            if (npc->name == "ranger" && index == 0) {
+                torchQuestActive = true;
+            }
             if (toLower(npc->options[index].prompt).find("farewell") != std::string::npos)
                 break;
         } else {
@@ -203,6 +210,7 @@ int main() {
     Room ruins{"Ancient Ruins", "Crumbling stones speak of a forgotten settlement swallowed by time."};
     Room tower{"Abandoned Tower", "A lonely tower leans towards the clouds, its door barred above."};
     Room vault{"Hidden Vault", "A secret chamber filled with dust and riches long unseen."};
+    Room sanctum{"Ancient Sanctum", "Stones arch above a chamber steeped in silence."};
 
     NPC hermit;
     hermit.name = "hermit";
@@ -222,15 +230,26 @@ int main() {
         {"Farewell", "He wishes you safe roads."}
     };
 
+    NPC ranger;
+    ranger.name = "ranger";
+    ranger.greeting = "A stern ranger watches the vale.";
+    ranger.options = {
+        {"How may I reach the sanctum?", "Craft a torch by combining a branch and cloth, then search the cave's tunnel. The ornate key awaits."},
+        {"Farewell", "He returns to his silent vigil."}
+    };
+
     // Place a few simple items in the world
     glade.items.push_back("flower");
+    glade.items.push_back("branch");
     river.items.push_back("stone");
     cave.items.push_back("rusty key");
     meadow.items.push_back("herbs");
     hill.items.push_back("map");
     ruins.items.push_back("ancient coin");
+    ruins.items.push_back("cloth");
     tower.items.push_back("silver sword");
     vault.items.push_back("golden chalice");
+    sanctum.items.push_back("ancient crown");
 
     // Points of interest in each room
     glade.pointsOfInterest["oak"] = "The ancient oak is etched with weathered runes.";
@@ -243,7 +262,7 @@ int main() {
 
     cave.pointsOfInterest["markings"] = "Faded symbols spiral across the damp rock.";
     cave.pointsOfInterest["stalactites"] = "Sharp formations drip slowly from above.";
-    cave.pointsOfInterest["tunnel"] = "A narrow tunnel leads deeper but is collapsed.";
+    cave.pointsOfInterest["tunnel"] = "A narrow tunnel disappears into darkness.";
 
     meadow.pointsOfInterest["flowers"] = "Wild blooms colour the meadow like a tapestry.";
     meadow.pointsOfInterest["log"] = "A fallen log hosts colonies of bright fungi.";
@@ -259,6 +278,7 @@ int main() {
 
     ruins.npc = &hermit;
     meadow.npc = &traveller;
+    hill.npc = &ranger;
 
     tower.pointsOfInterest["stairs"] = "Crumbling stairs spiral upwards and stop.";
     tower.pointsOfInterest["door"] = "A heavy wooden door bars the way up.";
@@ -267,6 +287,8 @@ int main() {
     vault.pointsOfInterest["chest"] = "An iron-bound chest rests against the far wall.";
     vault.pointsOfInterest["mural"] = "A faded mural depicts a forgotten coronation.";
     vault.pointsOfInterest["bones"] = "Old bones lie scattered across the floor.";
+
+    sanctum.pointsOfInterest["pedestal"] = "Upon the stone pedestal rests a final treasure.";
 
     // Special actions for each room
     glade.actions = {"rest"};
@@ -290,6 +312,8 @@ int main() {
     tower.actions = {"climb", "unlock door"};
     tower.actionResults["climb"] = "You climb the crumbling stairs, but they lead nowhere.";
 
+    vault.actions = {"unlock door"};
+
 
     // Descriptions the player can read when examining items
     std::unordered_map<std::string, std::string> itemDesc;
@@ -297,10 +321,15 @@ int main() {
     itemDesc["stone"] = "A smooth river stone.";
     itemDesc["rusty key"] = "Perhaps it unlocks something ancient.";
     itemDesc["herbs"] = "Bundles of fragrant healing herbs.";
+    itemDesc["branch"] = "A sturdy branch, dry and ready to burn.";
+    itemDesc["cloth"] = "A strip of cloth torn from some old garment.";
+    itemDesc["torch"] = "A makeshift torch of branch and cloth.";
+    itemDesc["ornate key"] = "Intricately worked and surprisingly bright.";
     itemDesc["map"] = "A faded map of the surrounding lands.";
     itemDesc["ancient coin"] = "Time-worn currency from a forgotten era.";
     itemDesc["silver sword"] = "Still sharp despite years of neglect.";
     itemDesc["golden chalice"] = "Jeweled and heavy, it glitters despite the dust.";
+    itemDesc["ancient crown"] = "Wrought of silver and set with dull gems.";
 
 
     // Connect rooms so the player can move between them
@@ -317,6 +346,9 @@ int main() {
     tower.exits["up"] = &vault;
     tower.exitLocked["up"] = true;
     vault.exits["down"] = &tower;
+    vault.exits["east"] = &sanctum;
+    vault.exitLocked["east"] = true;
+    sanctum.exits["west"] = &vault;
     meadow.exits["east"] = &ruins;
     ruins.exits["west"] = &meadow;
 
@@ -355,6 +387,7 @@ int main() {
         const std::vector<std::string> takeWords = {"take", "get", "pickup", "pick", "grab"};
         const std::vector<std::string> dropWords = {"drop", "leave"};
         const std::vector<std::string> useWords = {"use", "do"};
+        const std::vector<std::string> combineWords = {"combine", "craft"};
         const std::vector<std::string> invWords = {"inventory", "inv", "i"};
         const std::vector<std::string> talkWords = {"talk", "speak", "chat"};
         const std::vector<std::string> helpWords = {"help", "?"};
@@ -362,7 +395,7 @@ int main() {
 
         if (fuzzyMatch(words[0], helpWords)) {          // show available commands
 
-            std::cout << "Available commands: look [item], go [direction], take [item], drop [item], [action], talk, inventory, help, exit\n";
+            std::cout << "Available commands: look [item], go [direction], take [item], drop [item], combine [a] [b], [action], talk, inventory, help, exit\n";
             std::cout << "Type an action listed in the room to perform it." << "\n";
 
         }
@@ -470,6 +503,27 @@ int main() {
             }
         }
 
+        else if (fuzzyMatch(words[0], combineWords) && words.size() >= 3) {
+            std::string first = words[1];
+            std::string second = words[2];
+
+            auto it1 = std::find(inventory.begin(), inventory.end(), first);
+            auto it2 = std::find(inventory.begin(), inventory.end(), second);
+            if (it1 != inventory.end() && it2 != inventory.end()) {
+                if ((first == "branch" && second == "cloth") ||
+                    (first == "cloth" && second == "branch")) {
+                    inventory.erase(std::remove(inventory.begin(), inventory.end(), first), inventory.end());
+                    inventory.erase(std::remove(inventory.begin(), inventory.end(), second), inventory.end());
+                    inventory.push_back("torch");
+                    std::cout << "You craft a torch." << "\n";
+                } else {
+                    std::cout << "Those items refuse to join." << "\n";
+                }
+            } else {
+                std::cout << "You lack the materials." << "\n";
+            }
+        }
+
         else if (fuzzyMatch(words[0], useWords) && words.size() >= 2) { // perform a room action
             std::string action;
             for (size_t i = 1; i < words.size(); ++i) {
@@ -479,7 +533,15 @@ int main() {
 
             auto it = std::find(current->actions.begin(), current->actions.end(), action);
             if (it != current->actions.end()) {
-                if (action == "unlock door" && current == &tower) {
+                if (action == "search" && current == &cave && torchQuestActive && !torchQuestComplete) {
+                    if (std::find(inventory.begin(), inventory.end(), "torch") != inventory.end()) {
+                        torchQuestComplete = true;
+                        inventory.push_back("ornate key");
+                        std::cout << "Your torch reveals a hidden niche holding a key." << "\n";
+                    } else {
+                        std::cout << "It's too dark to see anything." << "\n";
+                    }
+                } else if (action == "unlock door" && current == &tower) {
                     auto lock = current->exitLocked.find("up");
                     if (lock != current->exitLocked.end() && !lock->second) {
                         std::cout << "The door is already open." << "\n";
@@ -488,6 +550,16 @@ int main() {
                         std::cout << "The key turns and the door creaks open." << "\n";
                     } else {
                         std::cout << "You need a key for that." << "\n";
+                    }
+                } else if (action == "unlock door" && current == &vault) {
+                    auto lock = current->exitLocked.find("east");
+                    if (lock != current->exitLocked.end() && !lock->second) {
+                        std::cout << "The door is already open." << "\n";
+                    } else if (std::find(inventory.begin(), inventory.end(), "ornate key") != inventory.end()) {
+                        current->exitLocked["east"] = false;
+                        std::cout << "The ornate key clicks and the eastern door swings wide." << "\n";
+                    } else {
+                        std::cout << "You need a special key." << "\n";
                     }
                 } else {
                     auto r = current->actionResults.find(action);
@@ -518,6 +590,17 @@ int main() {
                 std::cout << "The key turns and the door creaks open." << "\n";
             } else {
                 std::cout << "You need a key for that." << "\n";
+            }
+        }
+        else if (words[0] == "unlock" && words.size() >= 2 && words[1] == "door" && current == &vault) {
+            auto lock = current->exitLocked.find("east");
+            if (lock != current->exitLocked.end() && !lock->second) {
+                std::cout << "The door is already open." << "\n";
+            } else if (std::find(inventory.begin(), inventory.end(), "ornate key") != inventory.end()) {
+                current->exitLocked["east"] = false;
+                std::cout << "The ornate key clicks and the eastern door swings wide." << "\n";
+            } else {
+                std::cout << "You need a special key." << "\n";
             }
         }
 
