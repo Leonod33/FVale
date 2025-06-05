@@ -25,6 +25,7 @@ static const std::string CLR_CYAN    = "\033[36m";
 static const std::string CLR_GREEN   = "\033[32m";
 static const std::string CLR_YELLOW  = "\033[33m";
 static const std::string CLR_MAGENTA = "\033[35m";
+static const std::string CLR_BLUE    = "\033[34m";
 
 static void clearScreen() {
     std::system(CLEAR_COMMAND);
@@ -83,8 +84,23 @@ static std::string matchAction(const std::string& word,
 // Display the current room description along with items and exits
 static std::unordered_set<const Room*> visitedRooms;
 
+// --- Dynamic weather ---
+static const std::vector<std::string> weatherStates = {
+    "clear skies",
+    "low mist",
+    "light drizzle",
+    "steady rain",
+    "overcast clouds"
+};
+
+static std::string currentWeather = weatherStates[0];
+
+// Forward declaration so showRoom can call it
+static void maybeChangeWeather();
+
 // Display the current room description along with items and exits
 static void showRoom(const Room* room) {
+    maybeChangeWeather();
     if (visitedRooms.insert(room).second) {
         std::cout << CLR_BOLD << CLR_CYAN << room->name << CLR_RESET
                   << "\n\n" << room->description << "\n\n";
@@ -92,6 +108,7 @@ static void showRoom(const Room* room) {
         std::cout << "You return to " << CLR_BOLD << CLR_CYAN << room->name
                   << CLR_RESET << ".\n\n";
     }
+    std::cout << CLR_BLUE << "Weather: " << currentWeather << CLR_RESET << "\n";
     if (!room->items.empty()) {
         std::cout << CLR_GREEN << "You see:";
         for (const auto& it : room->items) std::cout << ' ' << it;
@@ -131,6 +148,15 @@ static const std::vector<std::string> events = {
 static void maybeAtmosphericEvent() {
     if (std::rand() % 100 < 7) {
         std::cout << '\n' << events[std::rand() % events.size()] << "\n";
+    }
+}
+
+// 10% chance to change the weather each time the room is shown
+static void maybeChangeWeather() {
+    if (std::rand() % 100 < 10) {
+        currentWeather = weatherStates[std::rand() % weatherStates.size()];
+        std::cout << CLR_BLUE << "The weather shifts: " << currentWeather
+                  << "." << CLR_RESET << "\n";
     }
 }
 
