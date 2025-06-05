@@ -14,6 +14,7 @@ and `room.cpp` for clarity.
 - Multiple NPCs with interactive dialogue
 - Improved parser for commands like `talk to hermit`
 - Rooms remember if you've visited them before
+- Dynamic weather events that shift as you explore
 
 ## Controls / Commands
 - `look` / `examine [item]` — View surroundings or inspect inventory items
@@ -39,7 +40,6 @@ Then run: ./vale
 - Quests
 - Puzzles/Riddles
 - Specific item uses (Key for a locked door, herbs for healing, lump of iron for a quest etc.)
-- Dynamic weather
 - Save/Load system
 
 ---

@@ -25,7 +25,6 @@
 - Quests
 - Puzzles/Riddles
 - Specific item uses (Key for a locked door, herbs for healing, lump of iron for a quest etc.)
-- Dynamic weather
 - Save/Load system
 
 ## Tone
