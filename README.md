@@ -15,11 +15,13 @@ and `room.cpp` for clarity.
 - Improved parser for commands like `talk to hermit`
 - Rooms remember if you've visited them before
 - Dynamic weather events that shift as you explore
+- Simple quest system with item crafting and puzzles
 
 ## Controls / Commands
 - `look` / `examine [item]` — View surroundings or inspect inventory items
 - `go [direction]` — Move between rooms (north, south, east, west)
 - `take [item]` — Pick up an item from the current room
+- `combine [item1] [item2]` — Craft a new item from two others
 - `inventory` or `i` — Show carried items
 - `help` — List commands
 - `exit` — Quit game
