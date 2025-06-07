@@ -355,6 +355,43 @@ int main() {
     Room* current = &glade;                // The player's current location
     std::vector<std::string> inventory;    // items the player has collected
 
+    auto printMap = [&]() {
+        std::vector<std::string> map = {
+            "                 [Sanctum]",
+            "                     |",
+            "                  [Vault]",
+            "                     |",
+            "                 [Tower]",
+            "                     |",
+            "                [River]",
+            "                     |",
+            "     [Hill]--[Glade]--[Cave]",
+            "                     |",
+            "                [Meadow]--[Ruins]"
+        };
+
+        std::vector<std::pair<const Room*, std::string>> names = {
+            {&glade, "Glade"}, {&river, "River"}, {&cave, "Cave"},
+            {&meadow, "Meadow"}, {&hill, "Hill"}, {&ruins, "Ruins"},
+            {&tower, "Tower"}, {&vault, "Vault"}, {&sanctum, "Sanctum"}
+        };
+
+        for (auto& n : names) {
+            if (n.first == current) {
+                std::string token = "[" + n.second + "]";
+                std::string repl  = "[" + n.second + "*]";
+                for (auto& line : map) {
+                    size_t pos = line.find(token);
+                    if (pos != std::string::npos) {
+                        line.replace(pos, token.size(), repl);
+                    }
+                }
+            }
+        }
+
+        for (const auto& line : map) std::cout << line << "\n";
+    };
+
     std::string input; // holds the player's typed command
     clearScreen();
     std::cout << CLR_BOLD << "Welcome to Whispers of the Forgotten Vale." << CLR_RESET << "\n";
@@ -374,7 +411,8 @@ int main() {
         std::string word;
         while (iss >> word) {
             if (word == "the" || word == "a" || word == "an" || word == "at" ||
-                word == "to" || word == "with")
+                word == "to" || word == "with" || word == "on" || word == "in" ||
+                word == "into" || word == "from" || word == "off")
                 continue;
             words.push_back(word);
         }
@@ -386,7 +424,7 @@ int main() {
         const std::vector<std::string> goWords = {"go", "move", "walk"};
         const std::vector<std::string> takeWords = {"take", "get", "pickup", "pick", "grab"};
         const std::vector<std::string> dropWords = {"drop", "leave"};
-        const std::vector<std::string> useWords = {"use", "do"};
+        const std::vector<std::string> useWords = {"use", "do", "open"};
         const std::vector<std::string> combineWords = {"combine", "craft"};
         const std::vector<std::string> invWords = {"inventory", "inv", "i"};
         const std::vector<std::string> talkWords = {"talk", "speak", "chat"};
@@ -524,52 +562,91 @@ int main() {
             }
         }
 
-        else if (fuzzyMatch(words[0], useWords) && words.size() >= 2) { // perform a room action
-            std::string action;
+        else if (fuzzyMatch(words[0], useWords) && words.size() >= 2) {
+            std::string target;
             for (size_t i = 1; i < words.size(); ++i) {
-                if (i > 1) action += ' ';
-                action += words[i];
+                if (i > 1) target += ' ';
+                target += words[i];
             }
 
-            auto it = std::find(current->actions.begin(), current->actions.end(), action);
-            if (it != current->actions.end()) {
-                if (action == "search" && current == &cave && torchQuestActive && !torchQuestComplete) {
-                    if (std::find(inventory.begin(), inventory.end(), "torch") != inventory.end()) {
-                        torchQuestComplete = true;
-                        inventory.push_back("ornate key");
-                        std::cout << "Your torch reveals a hidden niche holding a key." << "\n";
-                    } else {
-                        std::cout << "It's too dark to see anything." << "\n";
-                    }
-                } else if (action == "unlock door" && current == &tower) {
-                    auto lock = current->exitLocked.find("up");
-                    if (lock != current->exitLocked.end() && !lock->second) {
-                        std::cout << "The door is already open." << "\n";
-                    } else if (std::find(inventory.begin(), inventory.end(), "rusty key") != inventory.end()) {
-                        current->exitLocked["up"] = false;
-                        std::cout << "The key turns and the door creaks open." << "\n";
-                    } else {
-                        std::cout << "You need a key for that." << "\n";
-                    }
-                } else if (action == "unlock door" && current == &vault) {
-                    auto lock = current->exitLocked.find("east");
-                    if (lock != current->exitLocked.end() && !lock->second) {
-                        std::cout << "The door is already open." << "\n";
-                    } else if (std::find(inventory.begin(), inventory.end(), "ornate key") != inventory.end()) {
-                        current->exitLocked["east"] = false;
-                        std::cout << "The ornate key clicks and the eastern door swings wide." << "\n";
-                    } else {
-                        std::cout << "You need a special key." << "\n";
-                    }
+            auto invIt = std::find(inventory.begin(), inventory.end(), target);
+            if (invIt != inventory.end()) {
+                if (target == "map") {
+                    printMap();
+                } else if (target == "stone") {
+                    std::vector<std::string> jokes = {
+                        "You attempt to juggle the stone, but it immediately drops on your foot.",
+                        "You proudly present the stone to the air as if it were a rare gem.",
+                        "You balance the stone on your head for a moment before it tumbles off."
+                    };
+                    std::cout << jokes[std::rand() % jokes.size()] << "\n";
+                } else if (target == "flower") {
+                    std::cout << "You inhale the sweet scent of the flower." << "\n";
+                } else if (target == "branch") {
+                    std::cout << "You swing the branch as though fighting unseen foes." << "\n";
+                } else if (target == "rusty key") {
+                    std::cout << "The old key feels cold in your hand." << "\n";
+                } else if (target == "herbs") {
+                    std::cout << "Chewing the herbs leaves a pleasant taste and lifts your spirits." << "\n";
+                } else if (target == "cloth") {
+                    std::cout << "You fold the cloth neatly." << "\n";
+                } else if (target == "torch") {
+                    std::cout << "The torch crackles softly, casting flickering light." << "\n";
+                } else if (target == "ornate key") {
+                    std::cout << "The ornate key glints with promise." << "\n";
+                } else if (target == "ancient coin") {
+                    std::cout << "You flip the ancient coin. It lands head up." << "\n";
+                } else if (target == "silver sword") {
+                    std::cout << "You practice a few cautious swings with the sword." << "\n";
+                } else if (target == "golden chalice") {
+                    std::cout << "You admire your reflection in the chalice's gleam." << "\n";
+                } else if (target == "ancient crown") {
+                    std::cout << "You briefly crown yourself, feeling rather grand." << "\n";
                 } else {
-                    auto r = current->actionResults.find(action);
-                    if (r != current->actionResults.end())
-                        std::cout << r->second << "\n";
-                    else
-                        std::cout << "You " << action << ".\n";
+                    std::cout << "You can't think of a use for the " << target << "." << "\n";
                 }
             } else {
-                std::cout << "You can't " << action << " here.\n";
+                std::string action = target;
+                auto it = std::find(current->actions.begin(), current->actions.end(), action);
+                if (it != current->actions.end()) {
+                    if (action == "search" && current == &cave && torchQuestActive && !torchQuestComplete) {
+                        if (std::find(inventory.begin(), inventory.end(), "torch") != inventory.end()) {
+                            torchQuestComplete = true;
+                            inventory.push_back("ornate key");
+                            std::cout << "Your torch reveals a hidden niche holding a key." << "\n";
+                        } else {
+                            std::cout << "It's too dark to see anything." << "\n";
+                        }
+                    } else if (action == "unlock door" && current == &tower) {
+                        auto lock = current->exitLocked.find("up");
+                        if (lock != current->exitLocked.end() && !lock->second) {
+                            std::cout << "The door is already open." << "\n";
+                        } else if (std::find(inventory.begin(), inventory.end(), "rusty key") != inventory.end()) {
+                            current->exitLocked["up"] = false;
+                            std::cout << "The key turns and the door creaks open." << "\n";
+                        } else {
+                            std::cout << "You need a key for that." << "\n";
+                        }
+                    } else if (action == "unlock door" && current == &vault) {
+                        auto lock = current->exitLocked.find("east");
+                        if (lock != current->exitLocked.end() && !lock->second) {
+                            std::cout << "The door is already open." << "\n";
+                        } else if (std::find(inventory.begin(), inventory.end(), "ornate key") != inventory.end()) {
+                            current->exitLocked["east"] = false;
+                            std::cout << "The ornate key clicks and the eastern door swings wide." << "\n";
+                        } else {
+                            std::cout << "You need a special key." << "\n";
+                        }
+                    } else {
+                        auto r = current->actionResults.find(action);
+                        if (r != current->actionResults.end())
+                            std::cout << r->second << "\n";
+                        else
+                            std::cout << "You " << action << ".\n";
+                    }
+                } else {
+                    std::cout << "You can't " << action << " here.\n";
+                }
             }
         }
 
@@ -581,7 +658,7 @@ int main() {
             else
                 std::cout << "You " << action << ".\n";
         }
-        else if (words[0] == "unlock" && words.size() >= 2 && words[1] == "door" && current == &tower) {
+        else if ((words[0] == "unlock" || words[0] == "open") && words.size() >= 2 && words[1] == "door" && current == &tower) {
             auto lock = current->exitLocked.find("up");
             if (lock != current->exitLocked.end() && !lock->second) {
                 std::cout << "The door is already open." << "\n";
@@ -592,7 +669,7 @@ int main() {
                 std::cout << "You need a key for that." << "\n";
             }
         }
-        else if (words[0] == "unlock" && words.size() >= 2 && words[1] == "door" && current == &vault) {
+        else if ((words[0] == "unlock" || words[0] == "open") && words.size() >= 2 && words[1] == "door" && current == &vault) {
             auto lock = current->exitLocked.find("east");
             if (lock != current->exitLocked.end() && !lock->second) {
                 std::cout << "The door is already open." << "\n";
